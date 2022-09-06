@@ -5,6 +5,8 @@
 
 # mimalloc
 
+Refactor the OS part of the code to make it more readable and hackable.
+
 &nbsp;
 
 mimalloc (pronounced "me-malloc")
