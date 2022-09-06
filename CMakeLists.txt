@@ -48,7 +48,9 @@ set(mi_sources
     src/alloc-posix.c
     src/heap.c
     src/options.c
-    src/init.c)
+    src/init.c
+    src/init-win.c    
+)
 
 
 # -----------------------------------------------------------------------------
