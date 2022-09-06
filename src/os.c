@@ -7,6 +7,30 @@ terms of the MIT license. A copy of the license can be found in the file
 
 #include "os.h"
 
+void* mi_align_up_ptr(void* p, size_t alignment) {
+  return (void*)_mi_align_up((uintptr_t)p, alignment);
+}
+
+#if !defined(MI_USE_SBRK) && !defined(__wasi__)
+bool use_large_os_page(size_t size, size_t alignment) {
+  // if we have access, check the size and alignment requirements
+  if (large_os_page_size == 0 || !mi_option_is_enabled(mi_option_large_os_pages)) return false;
+  return ((size % large_os_page_size) == 0 && (alignment % large_os_page_size) == 0);
+}
+#endif
+
+// page size (initialized properly in `os_init`)
+size_t os_page_size = 4096;
+
+// minimal allocation granularity
+size_t os_alloc_granularity = 4096;
+
+// if non-zero, use large page allocation
+size_t large_os_page_size = 0;
+
+// is memory overcommit allowed? 
+// set dynamically in _mi_os_init (and if true we use MAP_NORESERVE)
+bool os_overcommit = true;
 
 /* -----------------------------------------------------------
   Initialization.
@@ -40,6 +64,59 @@ size_t _mi_os_good_alloc_size(size_t size) {
   else align_size = 4*MI_MiB;
   if (mi_unlikely(size >= (SIZE_MAX - align_size))) return size; // possible overflow?
   return _mi_align_up(size, align_size);
+}
+
+bool mi_os_mem_free(void* addr, size_t size, bool was_committed, mi_stats_t* stats) {
+  if (addr == NULL || size == 0) return true; // || _mi_os_is_huge_reserved(addr)
+  bool err = mi_os_mem_free_impl(addr, size, was_committed);
+  if (was_committed) { _mi_stat_decrease(&stats->committed, size); }
+  _mi_stat_decrease(&stats->reserved, size);
+  return !err;  
+}
+
+void* mi_os_mem_alloc(size_t size, size_t try_alignment, bool commit, bool allow_large, bool* is_large, mi_stats_t* stats) {
+  mi_assert_internal(size > 0 && (size % _mi_os_page_size()) == 0);
+  if (size == 0) return NULL;
+  if (!commit) allow_large = false;
+  if (try_alignment == 0) try_alignment = 1; // avoid 0 to ensure there will be no divide by zero when aligning
+  #if defined(MI_USE_SBRK)
+    MI_UNUSED(allow_large);
+    *is_large = false;
+    void* p = mi_heap_grow(size, try_alignment);
+  #else
+    void* p = mi_os_mem_alloc_impl(size, try_alignment, commit, allow_large, is_large);
+  #endif
+  mi_stat_counter_increase(stats->mmap_calls, 1);
+  if (p != NULL) {
+    _mi_stat_increase(&stats->reserved, size);
+    if (commit) { _mi_stat_increase(&stats->committed, size); }
+  }
+  return p;
+}
+
+void* mi_os_mem_alloc_aligned(size_t size, size_t alignment, bool commit, bool allow_large, bool* is_large, mi_stats_t* stats) {
+  mi_assert_internal(alignment >= _mi_os_page_size() && ((alignment & (alignment - 1)) == 0));
+  mi_assert_internal(size > 0 && (size % _mi_os_page_size()) == 0);
+  mi_assert_internal(is_large != NULL);
+  if (!commit) allow_large = false;
+  if (!(alignment >= _mi_os_page_size() && ((alignment & (alignment - 1)) == 0))) return NULL;
+  size = _mi_align_up(size, _mi_os_page_size());
+
+  // try first with a hint (this will be aligned directly on Win 10+ or BSD)
+  void* p = mi_os_mem_alloc(size, alignment, commit, allow_large, is_large, stats);
+  if (p == NULL) return NULL;
+  
+  // if not aligned, free it, overallocate, and unmap around it
+  if (((uintptr_t)p % alignment != 0)) {
+    mi_os_mem_free(p, size, commit, stats);
+    _mi_warning_message("unable to allocate aligned OS memory directly, fall back to over-allocation (%zu bytes, address: %p, alignment: %zu, commit: %d)\n", size, p, alignment, commit);
+    if (size >= (SIZE_MAX - alignment)) return NULL; // overflow
+    const size_t over_size = size + alignment;
+    p = mi_os_mem_alloc_aligned_impl(over_size, size, alignment, commit, allow_large, is_large, stats);
+  }
+
+  mi_assert_internal(p == NULL || (p != NULL && ((uintptr_t)p % alignment) == 0));
+  return p;
 }
 
 /* -----------------------------------------------------------

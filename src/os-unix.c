@@ -47,6 +47,10 @@ static void* mi_memory_grow( size_t size ) {
   return p;
 }
 
+#if defined(MI_USE_PTHREADS)
+static pthread_mutex_t mi_heap_grow_mutex = PTHREAD_MUTEX_INITIALIZER;
+#endif
+
 static void* mi_heap_grow(size_t size, size_t try_alignment) {
   void* p = NULL;
   if (try_alignment <= 1) {
