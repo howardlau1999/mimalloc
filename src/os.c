@@ -86,6 +86,10 @@ void* _mi_os_alloc_aligned(size_t size, size_t alignment, bool commit, bool* lar
   OS memory API: reset, commit, decommit, protect, unprotect.
 ----------------------------------------------------------- */
 
+static void* mi_align_down_ptr(void* p, size_t alignment) {
+  return (void*)_mi_align_down((uintptr_t)p, alignment);
+}
+
 // OS page align within a given area, either conservative (pages inside the area only),
 // or not (straddling pages outside the area is possible)
 static void* mi_os_page_align_areax(bool conservative, void* addr, size_t size, size_t* newsize) {

@@ -28,10 +28,6 @@ static void* mi_align_up_ptr(void* p, size_t alignment) {
   return (void*)_mi_align_up((uintptr_t)p, alignment);
 }
 
-static void* mi_align_down_ptr(void* p, size_t alignment) {
-  return (void*)_mi_align_down((uintptr_t)p, alignment);
-}
-
 // page size (initialized properly in `os_init`)
 static size_t os_page_size = 4096;
 
