@@ -35,6 +35,9 @@ set(mi_sources
     src/stats.c
     src/random.c
     src/os.c
+    src/os-win.c
+    src/os-wasi.c
+    src/os-unix.c
     src/bitmap.c
     src/arena.c
     src/segment-cache.c
