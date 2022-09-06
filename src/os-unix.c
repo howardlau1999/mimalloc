@@ -1,3 +1,5 @@
+#if !defined(_WIN32) && !defined(__wasi__)
+
 #include "os.h" 
 #include <sys/mman.h>  // mmap
 #include <unistd.h>    // sysconf
@@ -479,4 +481,6 @@ size_t mi_os_numa_nodex(void) {
 size_t mi_os_numa_node_countx(void) {
   return 1;
 }
+#endif
+
 #endif

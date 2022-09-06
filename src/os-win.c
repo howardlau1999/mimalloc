@@ -194,7 +194,7 @@ void* mi_os_mem_alloc_impl(size_t size, size_t try_alignment, bool commit, bool 
   return mi_win_virtual_alloc(NULL, size, try_alignment, flags, false, allow_large, is_large);
 }
 
-void* mi_os_mem_alloc_aligned_impl(size_t size, size_t alignment, bool commit, bool allow_large, bool* is_large) {
+void* mi_os_mem_alloc_aligned_impl(size_t over_size, size_t size, size_t alignment, bool commit, bool allow_large, bool* is_large, mi_stats_t* stats) {
   // over-allocate uncommitted (virtual) memory
   void* p = mi_os_mem_alloc(over_size, 0 /*alignment*/, false /* commit? */, false /* allow_large */, is_large, stats);
   if (p == NULL) return NULL;
