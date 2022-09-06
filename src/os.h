@@ -1,5 +1,19 @@
 #pragma once
 
+#ifndef _DEFAULT_SOURCE
+#define _DEFAULT_SOURCE   // ensure mmap flags are defined
+#endif
+
+#if defined(__sun)
+// illumos provides new mman.h api when any of these are defined
+// otherwise the old api based on caddr_t which predates the void pointers one.
+// stock solaris provides only the former, chose to atomically to discard those
+// flags only here rather than project wide tough.
+#undef _XOPEN_SOURCE
+#undef _POSIX_C_SOURCE
+#endif
+
+
 #include "mimalloc.h"
 #include "mimalloc-internal.h"
 #include "mimalloc-atomic.h"
